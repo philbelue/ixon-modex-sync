@@ -1,8 +1,13 @@
 {
   "name": "ixon-modex-sync",
   "version": "1.0.0",
+  "description": "IXON MODEX 2026 Trade Show Command Center — sync API",
+  "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "@vercel/kv": "^1.0.0"
+    "@vercel/kv": "^2.0.0"
   }
 }

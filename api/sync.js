@@ -1,7 +1,7 @@
 import { kv } from '@vercel/kv';
 
 export default async function handler(req, res) {
-  // CORS — wide open for trade show use
+  // CORS — allow GitHub Pages and anywhere else
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -10,27 +10,34 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const room = req.query.room || 'modex2026';
+  // Sync room ID — defaults to "modex2026" so the whole team lands on the same room.
+  const room = (req.query.room || 'modex2026').toString().slice(0, 64);
   const key = `sync:${room}`;
 
   try {
     if (req.method === 'GET') {
-      const data = await kv.get(key);
-      return res.status(200).json({ status: data ? 'ok' : 'empty', data: data || [] });
+      const data = (await kv.get(key)) || { status: 'empty', data: [] };
+      return res.status(200).json(data);
     }
 
     if (req.method === 'POST') {
-      const { data } = req.body;
-      if (!Array.isArray(data)) {
-        return res.status(400).json({ error: 'data must be an array' });
-      }
-      await kv.set(key, data, { ex: 60 * 60 * 24 * 7 }); // 7 day TTL
-      return res.status(200).json({ status: 'saved', count: data.length });
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const payload = {
+        data: body.data || [],
+        updatedAt: new Date().toISOString(),
+        updatedBy: body.updatedBy || 'unknown'
+      };
+      await kv.set(key, payload);
+      return res.status(200).json({
+        status: 'ok',
+        room,
+        count: Array.isArray(payload.data) ? payload.data.length : 0,
+        updatedAt: payload.updatedAt
+      });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error('KV error:', err);
-    return res.status(500).json({ error: 'Storage error', detail: err.message });
+    return res.status(500).json({ error: err.message || String(err) });
   }
 }
